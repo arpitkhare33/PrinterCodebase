@@ -4,11 +4,11 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
-// ✅ Enable CORS for all routes
-app.use(cors());
+
 const app = express();
 const PORT = 3000;
-
+// ✅ Enable CORS for all routes
+app.use(cors());
 app.get('/download', (req, res) => {
   const dirName = req.query.dir;
 
