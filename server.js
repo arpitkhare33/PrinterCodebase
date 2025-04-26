@@ -66,6 +66,50 @@ app.get('/download', async (req, res) => {
   }
 });
 
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Multer configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    cb(null, `${timestamp}-${file.originalname}`);
+  }
+});
+const upload = multer({ storage });
+
+// Route to handle form upload
+app.post("/upload", upload.single("zipFile"), (req, res) => {
+  const { build, uploader } = req.body;
+  const zipFilePath = req.file ? req.file.path : null;
+
+  if (!zipFilePath) {
+    return res.status(400).send("ZIP file is required.");
+  }
+
+  // Get upload timestamp
+  const uploadDateTime = new Date().toISOString();
+
+  const dataToSave = {
+    build,
+    uploader,
+    zipFilePath,
+    uploadDateTime
+  };
+
+  // Save to a JSON file
+  const jsonFilename = `${build}.json`;
+  const jsonPath = path.join(uploadDir, jsonFilename);
+  fs.writeFileSync(jsonPath, JSON.stringify(dataToSave, null, 2));
+
+  res.send("Upload successful! Data saved.");
+});
 // Fallback error handler
 app.use((err, req, res, next) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
