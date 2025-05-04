@@ -7,7 +7,7 @@ const multer = require("multer");
 const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
-const PORT = 3000;
+const PORT = 443;
 
 app.use(cors());
 app.use(express.json());
