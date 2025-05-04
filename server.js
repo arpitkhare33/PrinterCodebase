@@ -3,7 +3,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
-const multer = require("multer");
+const multer = require('multer');
 const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
@@ -18,132 +18,146 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir);
 }
 
-// Create uploads directory if it doesn't exist
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-// SQLite database connection
-const dbPath = path.join(__dirname, 'MaxShapez.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) return console.error('Database connection error:', err.message);
-  console.log('Connected to the MaxShapez SQLite database.');
-});
-
-// Logging function
 function logToFile(message) {
   const logFile = path.join(logsDir, `${new Date().toISOString().slice(0, 10)}.log`);
   const timestamp = new Date().toISOString();
   fs.appendFileSync(logFile, `[${timestamp}] ${message}\n`);
 }
 
-// Multer setup
+// SQLite database setup
+const dbPath = path.join(__dirname, 'MaxShapez.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) return console.error('DB Connection Error:', err.message);
+  console.log('Connected to MaxShapez database.');
+});
+
+// Create tables if they don't exist
+const createTablesSQL = `
+CREATE TABLE IF NOT EXISTS PrinterTypes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS Printers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  type_id INTEGER NOT NULL,
+  ip_address TEXT,
+  location TEXT,
+  status TEXT DEFAULT 'offline',
+  last_seen DATETIME,
+  FOREIGN KEY(type_id) REFERENCES PrinterTypes(id)
+);
+
+CREATE TABLE IF NOT EXISTS Builds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  version TEXT,
+  description TEXT,
+  uploaded_by TEXT,
+  upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  file_path TEXT
+);
+
+CREATE TABLE IF NOT EXISTS Downloads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  printer_id INTEGER,
+  build_id INTEGER,
+  download_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  status TEXT DEFAULT 'initiated',
+  error_message TEXT,
+  FOREIGN KEY(printer_id) REFERENCES Printers(id),
+  FOREIGN KEY(build_id) REFERENCES Builds(id)
+);
+
+CREATE TABLE IF NOT EXISTS Logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  printer_id INTEGER,
+  message TEXT,
+  level TEXT DEFAULT 'INFO',
+  FOREIGN KEY(printer_id) REFERENCES Printers(id)
+);
+`;
+
+db.exec(createTablesSQL, (err) => {
+  if (err) return console.error('Error creating tables:', err.message);
+  console.log('Tables ensured.');
+});
+
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
+
 const upload = multer({ storage });
 
-// Upload endpoint
-app.post("/upload", upload.single("zipFile"), (req, res) => {
-  const { build, uploader } = req.body;
+app.post('/upload', upload.single('zipFile'), (req, res) => {
+  const { build, uploader, version, description } = req.body;
   const zipFilePath = req.file ? req.file.path : null;
+  if (!zipFilePath) return res.status(400).send('ZIP file is required.');
 
-  if (!zipFilePath) return res.status(400).send("ZIP file is required.");
-
-  const uploadDateTime = new Date().toISOString();
-
-  db.run(`INSERT INTO builds (build_name, uploader, upload_timestamp, file_path) VALUES (?, ?, ?, ?)`,
-    [build, uploader, uploadDateTime, zipFilePath],
-    function (err) {
-      if (err) {
-        logToFile(`DB ERROR: ${err.message}`);
-        return res.status(500).send("Failed to save build to database.");
-      }
-
-      const dataToSave = {
-        build,
-        uploader,
-        zipFilePath,
-        uploadDateTime
-      };
-      const jsonFilename = `${build}.json`;
-      const jsonPath = path.join(uploadDir, jsonFilename);
-      fs.writeFileSync(jsonPath, JSON.stringify(dataToSave, null, 2));
-
-      logToFile(`UPLOAD SUCCESS: ${uploader} uploaded build '${build}'`);
-      res.send("Upload successful! Data saved.");
-    });
+  const stmt = `INSERT INTO Builds (name, version, description, uploaded_by, file_path) VALUES (?, ?, ?, ?, ?)`;
+  db.run(stmt, [build, version, description, uploader, zipFilePath], function(err) {
+    if (err) return res.status(500).send('Database insert error.');
+    res.send('Upload successful! Build saved.');
+  });
 });
 
-// Download endpoint
-app.get('/download', async (req, res) => {
+app.get('/download', (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  try {
-    const dirName = req.query.dir;
-    if (!dirName) {
-      const msg = `Missing 'dir' parameter from ${clientIP}`;
-      logToFile(`ERROR: ${msg}`);
-      return res.status(400).send('Error: Directory name is required. Use ?dir=your_folder_name');
-    }
-
-    const dirPath = path.join(__dirname, dirName);
-    if (!fs.existsSync(dirPath) || !fs.lstatSync(dirPath).isDirectory()) {
-      const msg = `Directory not found or invalid: ${dirPath} (from ${clientIP})`;
-      logToFile(`ERROR: ${msg}`);
-      return res.status(404).send('Error: Directory not found');
-    }
-
-    const zipFileName = `${dirName}.zip`;
-    logToFile(`DOWNLOAD START: ${clientIP} requested '${dirName}'`);
-
-    res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
-    res.setHeader('Content-Type', 'application/zip');
-
-    const archive = archiver('zip', { zlib: { level: 9 } });
-
-    archive.on('error', (err) => {
-      logToFile(`ARCHIVE ERROR: ${err.message} for ${dirName} (from ${clientIP})`);
-      res.status(500).send('Error: Failed to create ZIP archive');
-    });
-
-    archive.on('end', () => {
-      logToFile(`DOWNLOAD COMPLETE: ${clientIP} successfully downloaded '${dirName}'`);
-    });
-
-    archive.pipe(res);
-    archive.directory(dirPath, false);
-    archive.finalize();
-  } catch (err) {
-    const errorMsg = `UNEXPECTED ERROR: ${err.stack || err.message} from ${clientIP}`;
-    logToFile(errorMsg);
-    res.status(500).send('Error: Internal Server Error');
+  const dirName = req.query.dir;
+  if (!dirName) {
+    logToFile(`ERROR: Missing 'dir' parameter from ${clientIP}`);
+    return res.status(400).send("Missing 'dir' parameter");
   }
+  const dirPath = path.join(__dirname, dirName);
+  if (!fs.existsSync(dirPath)) {
+    logToFile(`ERROR: Directory not found: ${dirPath} (${clientIP})`);
+    return res.status(404).send("Directory not found");
+  }
+
+  const zipFileName = `${dirName}.zip`;
+  res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
+  res.setHeader('Content-Type', 'application/zip');
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  archive.on('error', (err) => {
+    logToFile(`ARCHIVE ERROR: ${err.message} (${clientIP})`);
+    res.status(500).send('Failed to create ZIP archive');
+  });
+
+  archive.on('end', () => {
+    logToFile(`DOWNLOAD COMPLETE: ${clientIP} downloaded '${dirName}'`);
+  });
+
+  archive.pipe(res);
+  archive.directory(dirPath, false);
+  archive.finalize();
 });
 
-// API to get all builds
 app.get('/builds', (req, res) => {
-  db.all('SELECT * FROM builds ORDER BY upload_timestamp DESC', [], (err, rows) => {
-    if (err) {
-      logToFile(`DB ERROR: ${err.message}`);
-      return res.status(500).send("Failed to fetch builds from database.");
-    }
+  const stmt = `SELECT * FROM Builds ORDER BY upload_time DESC`;
+  db.all(stmt, [], (err, rows) => {
+    if (err) return res.status(500).send('Failed to fetch builds.');
     res.json(rows);
   });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const errorMsg = `GLOBAL ERROR: ${err.stack || err.message} from ${clientIP}`;
-  logToFile(errorMsg);
-  res.status(500).send('Something went wrong globally.');
+  logToFile(`GLOBAL ERROR: ${err.stack || err.message} from ${clientIP}`);
+  res.status(500).send('Internal Server Error');
 });
 
-// Start the server
 app.listen(PORT, '0.0.0.0', () => {
-  const msg = `SERVER STARTED on port ${PORT}`;
-  console.log(msg);
-  logToFile(msg);
+  logToFile(`SERVER STARTED on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
