@@ -57,7 +57,10 @@ CREATE TABLE IF NOT EXISTS Builds (
   description TEXT,
   uploaded_by TEXT,
   upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  file_path TEXT
+  file_path TEXT,
+  printer_type TEXT,
+  sub_type TEXT,
+  make TEXT
 );
 
 CREATE TABLE IF NOT EXISTS Downloads (
@@ -99,48 +102,51 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.post('/upload', upload.single('zipFile'), (req, res) => {
-  const { build, uploader, version, description } = req.body;
+  const { build, uploader, version, description, printer_type, sub_type, make } = req.body;
   const zipFilePath = req.file ? req.file.path : null;
   if (!zipFilePath) return res.status(400).send('ZIP file is required.');
 
-  const stmt = `INSERT INTO Builds (name, version, description, uploaded_by, file_path) VALUES (?, ?, ?, ?, ?)`;
-  db.run(stmt, [build, version, description, uploader, zipFilePath], function(err) {
+  const stmt = `INSERT INTO Builds (name, version, description, uploaded_by, file_path, printer_type, sub_type, make) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.run(stmt, [build, version, description, uploader, zipFilePath, printer_type, sub_type, make], function(err) {
     if (err) return res.status(500).send('Database insert error.');
     res.send('Upload successful! Build saved.');
   });
 });
 
-app.get('/download', (req, res) => {
+app.post('/download', (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const dirName = req.query.dir;
-  if (!dirName) {
-    logToFile(`ERROR: Missing 'dir' parameter from ${clientIP}`);
-    return res.status(400).send("Missing 'dir' parameter");
-  }
-  const dirPath = path.join(__dirname, dirName);
-  if (!fs.existsSync(dirPath)) {
-    logToFile(`ERROR: Directory not found: ${dirPath} (${clientIP})`);
-    return res.status(404).send("Directory not found");
+  const { printer_type, sub_type, make } = req.body;
+  if (!printer_type || !sub_type || !make) {
+    logToFile(`ERROR: Missing parameters for download from ${clientIP}`);
+    return res.status(400).send("Missing 'printer_type', 'sub_type' or 'make'");
   }
 
-  const zipFileName = `${dirName}.zip`;
-  res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
-  res.setHeader('Content-Type', 'application/zip');
+  const stmt = `SELECT file_path FROM Builds WHERE printer_type = ? AND sub_type = ? AND make = ? ORDER BY upload_time DESC LIMIT 1`;
+  db.get(stmt, [printer_type, sub_type, make], (err, row) => {
+    if (err) {
+      logToFile(`DB ERROR: ${err.message} (${clientIP})`);
+      return res.status(500).send('Database error');
+    }
+    if (!row) {
+      logToFile(`NOT FOUND: No build for ${printer_type}/${sub_type}/${make} (${clientIP})`);
+      return res.status(404).send('No build found');
+    }
 
-  const archive = archiver('zip', { zlib: { level: 9 } });
+    const filePath = path.resolve(row.file_path);
+    if (!fs.existsSync(filePath)) {
+      logToFile(`FILE MISSING: ${filePath} (${clientIP})`);
+      return res.status(404).send('File not found');
+    }
 
-  archive.on('error', (err) => {
-    logToFile(`ARCHIVE ERROR: ${err.message} (${clientIP})`);
-    res.status(500).send('Failed to create ZIP archive');
+    res.download(filePath, path.basename(filePath), (err) => {
+      if (err) {
+        logToFile(`DOWNLOAD ERROR: ${err.message} (${clientIP})`);
+        res.status(500).send('Download failed');
+      } else {
+        logToFile(`DOWNLOAD SUCCESS: ${path.basename(filePath)} (${clientIP})`);
+      }
+    });
   });
-
-  archive.on('end', () => {
-    logToFile(`DOWNLOAD COMPLETE: ${clientIP} downloaded '${dirName}'`);
-  });
-
-  archive.pipe(res);
-  archive.directory(dirPath, false);
-  archive.finalize();
 });
 
 app.get('/builds', (req, res) => {

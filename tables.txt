@@ -1,0 +1,51 @@
+CREATE TABLE IF NOT EXISTS PrinterTypes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS Printers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, # will not be available 
+  name TEXT NOT NULL,
+  type_id INTEGER NOT NULL,
+  ip_address TEXT,
+  location TEXT,
+  status TEXT DEFAULT 'offline',
+  last_seen DATETIME,
+  FOREIGN KEY(type_id) REFERENCES PrinterTypes(id)
+);
+
+CREATE TABLE IF NOT EXISTS Builds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  version TEXT,
+  description TEXT,
+  uploaded_by TEXT,
+  upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  file_path TEXT,
+  is_available Boolean,
+  FOREIGN KEY(printer_id) REFERENCES Printers(id)
+);
+
+CREATE TABLE IF NOT EXISTS Downloads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  printer_id INTEGER,
+  build_id INTEGER,
+  download_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  status TEXT DEFAULT 'initiated',
+  error_message TEXT,
+  FOREIGN KEY(printer_id) REFERENCES Printers(id),
+  FOREIGN KEY(build_id) REFERENCES Builds(id)
+);
+
+CREATE TABLE IF NOT EXISTS Logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  printer_id INTEGER,
+  message TEXT,
+  level TEXT DEFAULT 'INFO',
+  FOREIGN KEY(printer_id) REFERENCES Printers(id)
+);
+
+Individual printer id is not required, can't track Individual Printers
+
