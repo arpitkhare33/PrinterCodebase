@@ -123,7 +123,7 @@ app.post('/download', (req, res) => {
   }
 
   const stmt = `SELECT file_path FROM Builds WHERE printer_type = ? AND sub_type = ? AND make = ? AND
-                build_number = ? ORDER BY upload_time DESC LIMIT 1`;
+                version = ? ORDER BY upload_time DESC LIMIT 1`;
   db.get(stmt, [printer_type, sub_type, make, build_number], (err, row) => {
     if (err) {
       logToFile(`DB ERROR: ${err.message} (${clientIP})`);
