@@ -16,8 +16,8 @@
           <input type="text" class="form-control" name="build" required>
         </div>
         <div class="col-md-6">
-          <label for="build_number" class="form-label">Build Number</label>
-          <input type="text" class="form-control" name="build_number">
+          <label for="version" class="form-label">Version</label>
+          <input type="text" class="form-control" name="version">
         </div>
         <div class="col-md-6">
           <label for="printer_type" class="form-label">Printer Type</label>
@@ -56,15 +56,14 @@
           <tr>
             <th>ID</th>
             <th>Name</th>
-            <th>Build Number</th>
+            <th>Version</th>
             <th>Description</th>
             <th>Uploaded By</th>
             <th>Upload Time</th>
             <th>Printer Type</th>
             <th>Sub Type</th>
             <th>Make</th>
-            <th>File</th>
-            <th>Action</th>
+            <th>File Path</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -84,7 +83,7 @@
           row.innerHTML = `
             <td>${b.id}</td>
             <td>${b.name}</td>
-            <td>${b.build_number || ''}</td>
+            <td>${b.version || ''}</td>
             <td>${b.description || ''}</td>
             <td>${b.uploaded_by || ''}</td>
             <td>${b.upload_time || ''}</td>
@@ -92,31 +91,11 @@
             <td>${b.sub_type || ''}</td>
             <td>${b.make || ''}</td>
             <td><a href="${b.file_path}" target="_blank">Download</a></td>
-            <td><button onclick="deleteBuild(${b.id})" class="btn btn-sm btn-danger">Delete</button></td>
           `;
           tableBody.appendChild(row);
         });
       } catch (error) {
         console.error("Failed to load builds:", error);
-      }
-    }
-
-    async function deleteBuild(id) {
-      if (confirm("Are you sure you want to delete this build?")) {
-        try {
-          const response = await fetch(`http://3.6.254.133:3000/builds/${id}`, {
-            method: "DELETE",
-          });
-          if (response.ok) {
-            alert("Build deleted successfully.");
-            loadBuilds();
-          } else {
-            alert("Failed to delete build.");
-          }
-        } catch (err) {
-          alert("Error deleting build.");
-          console.error(err);
-        }
       }
     }
 
