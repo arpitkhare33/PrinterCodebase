@@ -156,6 +156,27 @@ app.get('/builds', (req, res) => {
     res.json(rows);
   });
 });
+app.delete('/builds/:id', (req, res) => {
+  const buildId = req.params.id;
+  const getStmt = `SELECT file_path FROM Builds WHERE id = ?`;
+
+  db.get(getStmt, [buildId], (err, row) => {
+    if (err) return res.status(500).send('Database error.');
+    if (!row) return res.status(404).send('Build not found.');
+
+    // Delete file from disk
+    if (fs.existsSync(row.file_path)) {
+      fs.unlinkSync(row.file_path);
+    }
+
+    const delStmt = `DELETE FROM Builds WHERE id = ?`;
+    db.run(delStmt, [buildId], function (err) {
+      if (err) return res.status(500).send('Failed to delete from database.');
+      res.send('Build deleted successfully.');
+    });
+  });
+});
+
 
 app.use((err, req, res, next) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;

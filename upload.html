@@ -16,7 +16,7 @@
           <input type="text" class="form-control" name="build" required>
         </div>
         <div class="col-md-6">
-          <label for="version" class="form-label">Version</label>
+          <label for="version" class="form-label">Build Number</label>
           <input type="text" class="form-control" name="version">
         </div>
         <div class="col-md-6">
@@ -91,13 +91,32 @@
             <td>${b.sub_type || ''}</td>
             <td>${b.make || ''}</td>
             <td><a href="${b.file_path}" target="_blank">Download</a></td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteBuild(${b.id})">Delete</button></td>
           `;
+
           tableBody.appendChild(row);
         });
       } catch (error) {
         console.error("Failed to load builds:", error);
       }
     }
+      async function deleteBuild(id) {
+    if (!confirm("Are you sure you want to delete this build?")) return;
+
+    try {
+      const response = await fetch(`http://3.6.254.133:3000/builds/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error("Delete failed");
+
+      alert("Build deleted successfully!");
+      loadBuilds();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete build.");
+    }
+  }
 
     document.addEventListener("DOMContentLoaded", loadBuilds);
   </script>
