@@ -105,9 +105,10 @@ app.post('/upload', upload.single('zipFile'), (req, res) => {
   const { build, uploader, version, description, printer_type, sub_type, make } = req.body;
   const zipFilePath = req.file ? req.file.path : null;
   if (!zipFilePath) return res.status(400).send('ZIP file is required.');
+  const upload_time = getISTTimestamp();
 
-  const stmt = `INSERT INTO Builds (name, version, description, uploaded_by, file_path, printer_type, sub_type, make) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.run(stmt, [build, version, description, uploader, zipFilePath, printer_type, sub_type, make], function(err) {
+  const stmt = `INSERT INTO Builds (name, version, description, uploaded_by, file_path, printer_type, sub_type, make, upload_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.run(stmt, [build, version, description, uploader, zipFilePath, printer_type, sub_type, make, upload_time], function(err) {
     if (err) return res.status(500).send('Database insert error.');
     res.send('Upload successful! Build saved.');
   });
@@ -176,7 +177,13 @@ app.delete('/builds/:id', (req, res) => {
     });
   });
 });
-
+function getISTTimestamp() {
+  const now = new Date();
+  // convert to IST by adding 5.5 hours in ms
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istTime = new Date(now.getTime() + istOffset);
+  return istTime.toISOString().replace('T', ' ').slice(0, 19);
+}
 
 app.use((err, req, res, next) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
