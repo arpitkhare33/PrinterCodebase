@@ -106,11 +106,12 @@ app.post('/upload', upload.single('zipFile'), (req, res) => {
   const { build, uploader, version, description, printer_type, sub_type, make } = req.body;
   const zipFilePath = req.file ? req.file.path : null;
   const fileSize = req.file.size;
+  const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);
   if (!zipFilePath) return res.status(400).send('ZIP file is required.');
   const upload_time = getISTTimestamp();
 
   const stmt = `INSERT INTO Builds (name, version, description, uploaded_by, file_path, printer_type, sub_type, size, make, upload_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.run(stmt, [build, version, description, uploader, zipFilePath, printer_type, sub_type, fileSize, make, upload_time], function(err) {
+  db.run(stmt, [build, version, description, uploader, zipFilePath, printer_type, sub_type, fileSizeInMB, make, upload_time], function(err) {
     if (err) return res.status(500).send('Database insert error.');
     res.send('Upload successful! Build saved.');
   });

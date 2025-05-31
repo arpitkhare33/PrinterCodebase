@@ -9,7 +9,7 @@
 <body class="bg-light">
   <div class="container py-5">
     <h2 class="mb-4 text-center">Upload Build</h2>
-    <form id="uploadForm" action="http://3.6.254.133:3000/upload" method="POST" enctype="multipart/form-data" class="bg-white p-4 rounded shadow-sm">
+    <form id="uploadForm" enctype="multipart/form-data" class="bg-white p-4 rounded shadow-sm">
       <div class="row g-3">
         <div class="col-md-6">
           <label for="build" class="form-label">Build Name</label>
@@ -63,7 +63,7 @@
             <th>Printer Type</th>
             <th>Sub Type</th>
             <th>Make</th>
-            <th>Size</th>
+            <th>Size (MB)</th>
             <th>File Path</th>
           </tr>
         </thead>
@@ -120,7 +120,24 @@
       alert("Failed to delete build.");
     }
   }
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+    e.preventDefault(); // prevent page reload
 
+    const form = e.target;
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch('http://3.6.254.133:3000/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.text(); // or response.json() if your server returns JSON
+      alert('Upload successful: ' + result);
+    } catch (error) {
+      alert('Upload failed: ' + error.message);
+    }
+  });
     document.addEventListener("DOMContentLoaded", loadBuilds);
   </script>
 </body>
