@@ -125,7 +125,7 @@ app.post('/download', (req, res) => {
   const maxShapHeader = req.headers['maxshap-header'];
   if (maxShapHeader !== 'R3dE7yes') {
     logToFile(`UNAUTHORIZED ACCESS: Missing or invalid MaxShap-Header from ${clientIP}`);
-    return res.status(403).send('Forbidden: Invalid MaxShap-Header');
+    return res.status(403).send('Forbidden: Missing Headers from request');
   }
 
   const { printer_type, sub_type, make , build_number } = req.body;
