@@ -120,21 +120,33 @@ app.post('/upload', upload.single('zipFile'), (req, res) => {
 
 app.post('/download', (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const { printer_type, sub_type, make , build_number} = req.body;
-  if (!printer_type || !sub_type || !make || !build_number) {
-    logToFile(`ERROR: Missing parameters for download from ${clientIP}`);
-    return res.status(400).send("Missing 'printer_type', 'sub_type' or 'make' or 'build_number");
+
+  // ✅ Check custom header
+  const maxShapHeader = req.headers['maxshap-header'];
+  if (maxShapHeader !== 'R3dE7yes') {
+    logToFile(`UNAUTHORIZED ACCESS: Missing or invalid MaxShap-Header from ${clientIP}`);
+    return res.status(403).send('Forbidden: Invalid MaxShap-Header');
   }
 
-  const stmt = `SELECT file_path FROM Builds WHERE printer_type = ? AND sub_type = ? AND make = ? AND
-                version = ? ORDER BY upload_time DESC LIMIT 1`;
+  const { printer_type, sub_type, make , build_number } = req.body;
+  if (!printer_type || !sub_type || !make || !build_number) {
+    logToFile(`ERROR: Missing parameters for download from ${clientIP}`);
+    return res.status(400).send("Missing 'printer_type', 'sub_type' or 'make' or 'build_number'");
+  }
+
+  const stmt = `
+    SELECT file_path FROM Builds 
+    WHERE printer_type = ? AND sub_type = ? AND make = ? AND version = ? 
+    ORDER BY upload_time DESC LIMIT 1
+  `;
+  
   db.get(stmt, [printer_type, sub_type, make, build_number], (err, row) => {
     if (err) {
       logToFile(`DB ERROR: ${err.message} (${clientIP})`);
       return res.status(500).send('Database error');
     }
     if (!row) {
-      logToFile(`NOT FOUND: No build for ${printer_type}/${sub_type}/${make}/ ${build_number} (${clientIP})`);
+      logToFile(`NOT FOUND: No build for ${printer_type}/${sub_type}/${make}/${build_number} (${clientIP})`);
       return res.status(404).send('No build found');
     }
 
@@ -154,6 +166,7 @@ app.post('/download', (req, res) => {
     });
   });
 });
+
 
 app.get('/builds', (req, res) => {
   const stmt = `SELECT * FROM Builds ORDER BY upload_time DESC`;
