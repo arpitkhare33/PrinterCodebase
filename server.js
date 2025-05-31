@@ -104,6 +104,7 @@ const upload = multer({ storage });
 
 app.post('/upload', upload.single('zipFile'), (req, res) => {
   const { build, uploader, version, description, printer_type, sub_type, make } = req.body;
+  console.log("Checking upload feature: ", req.body);
   const zipFilePath = req.file ? req.file.path : null;
   const fileSize = req.file.size;
   const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);

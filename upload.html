@@ -125,7 +125,7 @@
 
     const form = e.target;
     const formData = new FormData(form);
-
+    console.log("form data:", formData);
     try {
       const response = await fetch('http://3.6.254.133:3000/upload', {
         method: 'POST',
