@@ -46,6 +46,9 @@
         <div class="col-12 d-grid">
           <button type="submit" class="btn btn-primary mt-3">Upload Build</button>
         </div>
+        <div class="progress mt-3" style="height: 20px;">
+          <div id="uploadProgress" class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+        </div>
       </div>
     </form>
 
@@ -120,23 +123,38 @@
       alert("Failed to delete build.");
     }
   }
-    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
-    e.preventDefault(); // prevent page reload
+  document.getElementById('uploadForm').addEventListener('submit', function (e) {
+    e.preventDefault();
 
     const form = e.target;
     const formData = new FormData(form);
-    console.log("form data:", formData);
-    try {
-      const response = await fetch('http://3.6.254.133:3000/upload', {
-        method: 'POST',
-        body: formData
-      });
+    const xhr = new XMLHttpRequest();
 
-      const result = await response.text(); // or response.json() if your server returns JSON
-      alert('Upload successful: ' + result);
-    } catch (error) {
-      alert('Upload failed: ' + error.message);
-    }
+    xhr.open('POST', 'http://3.6.254.133:3000/upload');
+
+    xhr.upload.addEventListener('progress', function (e) {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        const progressBar = document.getElementById('uploadProgress');
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent + '%';
+      }
+    });
+
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        alert('Upload successful: ' + xhr.responseText);
+        location.reload(); // refresh page
+      } else {
+        alert('Upload failed: ' + xhr.responseText);
+      }
+    };
+
+    xhr.onerror = function () {
+      alert('Upload failed due to a network error.');
+    };
+
+    xhr.send(formData);
   });
     document.addEventListener("DOMContentLoaded", loadBuilds);
   </script>
