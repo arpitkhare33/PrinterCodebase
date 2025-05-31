@@ -63,6 +63,7 @@
             <th>Printer Type</th>
             <th>Sub Type</th>
             <th>Make</th>
+            <th>Size</th>
             <th>File Path</th>
           </tr>
         </thead>
@@ -90,6 +91,8 @@
             <td>${b.printer_type || ''}</td>
             <td>${b.sub_type || ''}</td>
             <td>${b.make || ''}</td>
+            <td>${b.size || ''}</td>
+
             <td><a href="${b.file_path}" target="_blank">Download</a></td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteBuild(${b.id})">Delete</button></td>
           `;
