@@ -107,7 +107,7 @@ app.post('/upload', upload.single('zipFile'), (req, res) => {
   console.log("Checking upload feature: ", req.body);
   const zipFilePath = req.file ? req.file.path : null;
   const fileSize = req.file.size;
-  const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);
+  const fileSizeInMB = (fileSize/ (1024 * 1024)).toFixed(2);
   if (!zipFilePath) return res.status(400).send('ZIP file is required.');
   const upload_time = getISTTimestamp();
 
