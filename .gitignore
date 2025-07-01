@@ -1,3 +1,6 @@
 node_modules
 MaxShapez.db
 logs
+DemoEnv
+build
+backup
