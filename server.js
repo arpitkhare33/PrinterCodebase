@@ -5,7 +5,9 @@ const path = require('path');
 const archiver = require('archiver');
 const multer = require('multer');
 const sqlite3 = require('sqlite3').verbose();
-
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const JWT_SECRET = 'Maxshapez'; // Change in production!
 const app = express();
 const PORT = 3000;
 
@@ -83,12 +85,48 @@ CREATE TABLE IF NOT EXISTS Logs (
   level TEXT DEFAULT 'INFO',
   FOREIGN KEY(printer_id) REFERENCES Printers(id)
 );
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    role TEXT
+  )
 `;
 
 db.exec(createTablesSQL, (err) => {
   if (err) return console.error('Error creating tables:', err.message);
   console.log('Tables ensured.');
 });
+db.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
+  if (!row) {
+    const hash = bcrypt.hashSync('admin123', 10);
+    db.run('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ['admin', hash, 'admin']);
+  }
+});
+db.get('SELECT * FROM users WHERE username = ?', ['viewer'], (err, row) => {
+  if (!row) {
+    const hash = bcrypt.hashSync('viewer123', 10);
+    db.run('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', ['viewer', hash, 'viewer']);
+  }
+});
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).send('No token provided');
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).send('Invalid token');
+    req.user = user;
+    next();
+  });
+}
+function authorizeRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).send('Forbidden: insufficient permissions');
+    }
+    next();
+  };
+}
 
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -101,8 +139,18 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-app.post('/upload', upload.single('zipFile'), (req, res) => {
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
+    if (!user) return res.status(401).send('Invalid credentials');
+    if (!bcrypt.compareSync(password, user.password)) {
+      return res.status(401).send('Invalid credentials');
+    }
+    const token = jwt.sign({ username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token, role: user.role });
+  });
+});
+app.post('/upload', authenticateToken, authorizeRole('admin'), upload.single('zipFile'), (req, res) => {
   const { build, uploader, version, description, printer_type, sub_type, make } = req.body;
   console.log("Checking upload feature: ", req.body);
   const zipFilePath = req.file ? req.file.path : null;
@@ -168,14 +216,15 @@ app.post('/download', (req, res) => {
 });
 
 
-app.get('/builds', (req, res) => {
+app.get('/builds', authenticateToken, authorizeRole('admin', 'viewer'), (req, res) => {
   const stmt = `SELECT * FROM Builds ORDER BY upload_time DESC`;
   db.all(stmt, [], (err, rows) => {
     if (err) return res.status(500).send('Failed to fetch builds.');
     res.json(rows);
   });
 });
-app.delete('/builds/:id', (req, res) => {
+
+app.delete('/builds/:id', authenticateToken, authorizeRole('admin'), (req, res) => {
   const buildId = req.params.id;
   const getStmt = `SELECT file_path FROM Builds WHERE id = ?`;
 
