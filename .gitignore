@@ -1,4 +1,4 @@
-node_modules
+/node_modules
 MaxShapez.db
 logs
 DemoEnv
