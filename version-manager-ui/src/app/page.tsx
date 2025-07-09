@@ -25,7 +25,7 @@ export default function UploadPage() {
 
   const fetchBuilds = async (jwt?: string | null) => {
     try {
-        const res = await fetch('http://3.6.254.133:3000/builds', {
+        const res = await fetch('http://3.6.254.133:3001/builds', {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
       if (res.status === 401 || res.status === 403) {
@@ -46,7 +46,7 @@ export default function UploadPage() {
     e.preventDefault();
     setLoginError('');
     try {
-      const res = await fetch('http://3.6.254.133:3000/login', {
+      const res = await fetch('http://3.6.254.133:3001/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -88,7 +88,7 @@ export default function UploadPage() {
 
     try {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', 'http://3.6.254.133:3000/upload');
+      xhr.open('POST', 'http://3.6.254.133:3001/upload');
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
       xhr.upload.onprogress = (e) => {
@@ -123,7 +123,7 @@ export default function UploadPage() {
     }
     if (!confirm('Are you sure you want to delete this build?')) return;
     try {
-      const res = await fetch(`http://3.6.254.133:3000/builds/${id}`, {
+      const res = await fetch(`http://3.6.254.133:3001/builds/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
