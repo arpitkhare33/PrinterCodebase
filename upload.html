@@ -78,7 +78,7 @@
   <script>
     async function loadBuilds() {
       try {
-        const response = await fetch("http://3.6.254.133:3001/builds");
+        const response = await fetch("https://maxshapez.ddns.net:3001/builds");
         const builds = await response.json();
         const tableBody = document.querySelector("#buildsTable tbody");
         tableBody.innerHTML = '';
@@ -110,7 +110,7 @@
     if (!confirm("Are you sure you want to delete this build?")) return;
 
     try {
-      const response = await fetch(`http://3.6.254.133:3001/builds/${id}`, {
+      const response = await fetch(`https://maxshapez.ddns.net:3001/builds/${id}`, {
         method: 'DELETE'
       });
 
@@ -130,7 +130,7 @@
     const formData = new FormData(form);
     const xhr = new XMLHttpRequest();
 
-    xhr.open('POST', 'http://3.6.254.133:3001/upload');
+    xhr.open('POST', 'https://maxshapez.ddns.net:3001/upload');
 
     xhr.upload.addEventListener('progress', function (e) {
       if (e.lengthComputable) {

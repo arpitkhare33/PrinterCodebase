@@ -64,7 +64,7 @@ def download_file(server_url, build_object):
     except Exception as e:
         log(f"❌ ERROR: {str(e)}")
 
-server_url = "http://3.6.254.133:3001/download"
+server_url = "https://maxshapez.ddnet.net:3001/download"
 auth_token = "R3dE7yes"
 build_json = {
   "printer_type": "Prime",
