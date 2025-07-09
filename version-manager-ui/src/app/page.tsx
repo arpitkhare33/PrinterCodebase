@@ -131,6 +131,7 @@ export default function UploadPage() {
       alert('Build deleted');
       fetchBuilds(token);
     } catch (err) {
+      console.log(err);
       alert('Failed to delete build.');
     }
   };
